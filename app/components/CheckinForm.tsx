@@ -109,7 +109,7 @@ export function CheckinForm({
   const filledCount = items.filter(isFilled).length;
 
   return (
-    <form action={action} className="flex flex-col gap-8 pb-28">
+    <form action={action} className="flex flex-col gap-8 pb-32">
       <input type="hidden" name="weekStart" value={weekStartKeyStr} />
 
       {groups.map(({ group, items: groupItems }) => (
@@ -264,7 +264,7 @@ export function CheckinForm({
         </section>
       ))}
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200/70 bg-white/90 backdrop-blur-md dark:border-zinc-800/70 dark:bg-zinc-950/90">
+      <div className="safe-bottom fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200/70 bg-white/90 backdrop-blur-md dark:border-zinc-800/70 dark:bg-zinc-950/90">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           <span className="text-sm text-zinc-500 dark:text-zinc-400">
             {filledCount}/{items.length} kategori terisi
