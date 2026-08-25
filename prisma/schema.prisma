@@ -1,0 +1,69 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// A trackable area of life, e.g. "Konten YouTube" or "Karir".
+model Category {
+  id           String        @id @default(cuid())
+  name         String
+  // "counter" categories have a numeric weekly target (e.g. content count).
+  // "notes" categories are freeform weekly journal entries.
+  type         String
+  weeklyTarget Int?
+  // Section this category is grouped under on the dashboard, e.g. "Ibadah".
+  group        String        @default("Umum")
+  // Emoji shown next to the category name.
+  icon         String        @default("📌")
+  // Counter categories can optionally be logged per day (Mon-Sun) instead of
+  // typed as one weekly total, e.g. daily prayers. The weekly count is then
+  // derived from the sum of that week's DailyEntry rows.
+  dailyTracking Boolean      @default(false)
+  order        Int           @default(0)
+  archived     Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  entries      WeeklyEntry[]
+  dailyEntries DailyEntry[]
+}
+
+// One check-in for a category, for a given week.
+model WeeklyEntry {
+  id         String   @id @default(cuid())
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  // Always normalized to the Monday of the week, at 00:00.
+  weekStart  DateTime
+  notes      String   @default("")
+  // Actual count achieved this week, only used for "counter" categories.
+  // For dailyTracking categories this is derived from DailyEntry rows.
+  count      Int?
+  // Self-rating 1-10 for "notes" categories, e.g. how the week felt for Karir.
+  rating     Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([categoryId, weekStart])
+}
+
+// A single day's log for a dailyTracking counter category.
+model DailyEntry {
+  id         String   @id @default(cuid())
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  // Normalized to local midnight of that day.
+  date       DateTime
+  value      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([categoryId, date])
+}
