@@ -67,3 +67,37 @@ model DailyEntry {
 
   @@unique([categoryId, date])
 }
+
+// A long-term target from the roadmap (e.g. "Modal 250jt" under "Panglima
+// Motor"). Grouped by `area` (the project/domain, e.g. "Panglima Motor",
+// "Personal") and an optional `period` label (e.g. "2026-2027"). Broken
+// down into small Tasks so the big goal becomes daily-actionable steps
+// instead of one overwhelming number.
+model Goal {
+  id          String    @id @default(cuid())
+  title       String
+  area        String
+  period      String    @default("")
+  // Freeform target description, e.g. "250 juta", "10rb follower".
+  targetValue String    @default("")
+  deadline    DateTime?
+  order       Int       @default(0)
+  archived    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  tasks       Task[]
+}
+
+// A small, single-sitting action step under a Goal. Checking these off one
+// by one is how the big goal actually gets worked on day to day.
+model Task {
+  id        String    @id @default(cuid())
+  goalId    String
+  goal      Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  title     String
+  done      Boolean   @default(false)
+  doneAt    DateTime?
+  order     Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  @@index([goalId])
+}

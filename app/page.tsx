@@ -7,17 +7,20 @@ import {
 } from "@/app/lib/data";
 import { DAY_LABELS, formatWeekLabel, getWeekStart } from "@/app/lib/week";
 import { groupByCategory, groupIcon } from "@/app/lib/groups";
+import { areaIcon, getTodayFocusTasks } from "@/app/lib/goals";
 import { WeeklyTrendChart } from "@/app/components/WeeklyTrendChart";
 import { MiniTrendChart } from "@/app/components/MiniTrendChart";
 
 export default async function DashboardPage() {
   const weekStart = getWeekStart();
-  const [items, streak, recap, categoryHistories] = await Promise.all([
-    getCategoriesWithEntryForWeek(weekStart),
-    getCurrentStreak(),
-    getWeeklyRecap(8),
-    getCategoryHistories(10),
-  ]);
+  const [items, streak, recap, categoryHistories, focusTasks] =
+    await Promise.all([
+      getCategoriesWithEntryForWeek(weekStart),
+      getCurrentStreak(),
+      getWeeklyRecap(8),
+      getCategoryHistories(10),
+      getTodayFocusTasks(3),
+    ]);
 
   const totalCount = items.length;
   const filledCount = items.filter((i) => i.entry !== null).length;
@@ -36,6 +39,31 @@ export default async function DashboardPage() {
           {formatWeekLabel(weekStart)}
         </h1>
       </section>
+
+      {focusTasks.length > 0 && (
+        <Link
+          href="/goals"
+          className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-emerald-900/40 dark:bg-zinc-900"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-base dark:bg-emerald-900/40">
+              🎯
+            </span>
+            <div>
+              <p className="text-sm font-medium">
+                {focusTasks.length} langkah kecil menunggu di Goals &amp;
+                Roadmap
+              </p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {focusTasks
+                  .map((t) => `${areaIcon(t.goal.area)} ${t.title}`)
+                  .join(" · ")}
+              </p>
+            </div>
+          </div>
+          <span className="text-emerald-600 dark:text-emerald-400">→</span>
+        </Link>
+      )}
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
