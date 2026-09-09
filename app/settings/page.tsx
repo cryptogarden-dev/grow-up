@@ -1,10 +1,14 @@
-import { getCategories } from "@/app/lib/data";
+import { getArchivedCategories, getCategories } from "@/app/lib/data";
+import { unarchiveCategory } from "@/app/lib/actions";
 import { AddCategoryForm } from "@/app/components/AddCategoryForm";
 import { CategoryRow } from "@/app/components/CategoryRow";
 import { groupByCategory, groupIcon } from "@/app/lib/groups";
 
 export default async function SettingsPage() {
-  const categories = await getCategories();
+  const [categories, archivedCategories] = await Promise.all([
+    getCategories(),
+    getArchivedCategories(),
+  ]);
   const groups = groupByCategory(
     categories.map((category) => ({ category }))
   );
@@ -48,9 +52,39 @@ export default async function SettingsPage() {
           )}
         </section>
 
-        <section>
-          <h2 className="mb-3 font-medium">Tambah Kategori Baru</h2>
-          <AddCategoryForm groups={groupNames} />
+        <section className="flex flex-col gap-6">
+          <div>
+            <h2 className="mb-3 font-medium">Tambah Kategori Baru</h2>
+            <AddCategoryForm groups={groupNames} />
+          </div>
+
+          {archivedCategories.length > 0 && (
+            <div>
+              <h2 className="mb-3 font-medium">Kategori Diarsipkan</h2>
+              <div className="flex flex-col gap-2">
+                {archivedCategories.map((category) => (
+                  <div
+                    key={category.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/50"
+                  >
+                    <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                      <span>{category.icon}</span>
+                      {category.name}
+                    </span>
+                    <form action={unarchiveCategory}>
+                      <input type="hidden" name="id" value={category.id} />
+                      <button
+                        type="submit"
+                        className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-600 hover:bg-white dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        Aktifkan lagi
+                      </button>
+                    </form>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </div>

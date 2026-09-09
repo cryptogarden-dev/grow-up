@@ -1,9 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { NumberStepper } from "@/app/components/NumberStepper";
 import { SubmitButton } from "@/app/components/SubmitButton";
+import { Toast, type ToastState } from "@/app/components/Toast";
 import { groupIcon } from "@/app/lib/groups";
+import { clampInt, selectOnFocus } from "@/app/lib/number";
+import type { ActionState } from "@/app/lib/action-state";
+import { initialActionState } from "@/app/lib/action-state";
 import { DAY_LABELS } from "@/app/lib/week";
 
 export type CheckinCategory = {
@@ -40,8 +44,22 @@ export function CheckinForm({
 }: {
   items: CheckinItem[];
   weekStartKeyStr: string;
-  action: (formData: FormData) => void;
+  action: (prevState: ActionState, formData: FormData) => Promise<ActionState>;
 }) {
+  const [state, formAction] = useActionState(action, initialActionState);
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const toastIdRef = useRef(0);
+
+  useEffect(() => {
+    if (state.status === "idle" || !state.message) return;
+    toastIdRef.current += 1;
+    setToast({
+      id: toastIdRef.current,
+      variant: state.status === "success" ? "success" : "error",
+      message: state.message,
+    });
+  }, [state]);
+
   const [values, setValues] = useState<Record<string, FormValues>>(() =>
     Object.fromEntries(
       items.map((item) => [
@@ -109,7 +127,7 @@ export function CheckinForm({
   const filledCount = items.filter(isFilled).length;
 
   return (
-    <form action={action} className="flex flex-col gap-8 pb-32">
+    <form action={formAction} className="flex flex-col gap-8 pb-32">
       <input type="hidden" name="weekStart" value={weekStartKeyStr} />
 
       {groups.map(({ group, items: groupItems }) => (
@@ -129,10 +147,10 @@ export function CheckinForm({
               return (
                 <div
                   key={category.id}
-                  className={`rounded-2xl border p-4 shadow-sm transition-colors ${
+                  className={`rounded-2xl border p-4 shadow-sm transition-all duration-300 ${
                     done
                       ? "border-emerald-300 bg-emerald-50/60 dark:border-emerald-800 dark:bg-emerald-950/20"
-                      : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+                      : "border-zinc-200 bg-white hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -163,7 +181,9 @@ export function CheckinForm({
                       )}
                     </div>
                     {done && (
-                      <span className="ml-auto text-emerald-600">✓</span>
+                      <span className="animate-pop-in ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-xs text-white">
+                        ✓
+                      </span>
                     )}
                   </div>
 
@@ -179,14 +199,16 @@ export function CheckinForm({
                               type="number"
                               name={`day-${category.id}-${i}`}
                               min={0}
+                              step={1}
                               value={v.daily[i]}
                               onChange={(e) =>
                                 updateDay(
                                   category.id,
                                   i,
-                                  Math.max(0, Number(e.target.value) || 0)
+                                  clampInt(e.target.value, 0)
                                 )
                               }
+                              onFocus={selectOnFocus}
                               className="w-full rounded-lg border border-zinc-300 px-1 py-1.5 text-center text-xs dark:border-zinc-700 dark:bg-zinc-800"
                             />
                           </div>
@@ -265,13 +287,26 @@ export function CheckinForm({
       ))}
 
       <div className="safe-bottom fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200/70 bg-white/90 backdrop-blur-md dark:border-zinc-800/70 dark:bg-zinc-950/90">
+        <div className="h-1 w-full bg-zinc-100 dark:bg-zinc-800">
+          <div
+            className="h-full bg-linear-to-r from-emerald-400 to-emerald-600 transition-all duration-500 ease-out"
+            style={{
+              width: `${items.length ? Math.round((filledCount / items.length) * 100) : 0}%`,
+            }}
+          />
+        </div>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <span className="text-sm text-zinc-500 dark:text-zinc-400">
+          <span className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+            {filledCount === items.length && items.length > 0 && (
+              <span className="animate-pop-in">🎉</span>
+            )}
             {filledCount}/{items.length} kategori terisi
           </span>
           <SubmitButton>Simpan Check-in</SubmitButton>
         </div>
       </div>
+
+      <Toast toast={toast} />
     </form>
   );
 }

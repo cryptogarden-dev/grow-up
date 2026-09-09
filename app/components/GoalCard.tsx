@@ -1,6 +1,6 @@
-import { archiveGoal, createTask } from "@/app/lib/goalActions";
+import { archiveGoal } from "@/app/lib/goalActions";
 import { goalProgress, type GoalWithTasks } from "@/app/lib/goals";
-import { SubmitButton } from "@/app/components/SubmitButton";
+import { AddTaskForm } from "@/app/components/AddTaskForm";
 import { TaskRow } from "@/app/components/TaskRow";
 
 const DEADLINE_FORMAT = new Intl.DateTimeFormat("id-ID", {
@@ -23,7 +23,14 @@ export function GoalCard({ goal }: { goal: GoalWithTasks }) {
     <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-medium leading-tight">{goal.title}</h3>
+          <h3 className="flex items-center gap-1.5 font-medium leading-tight">
+            {goal.title}
+            {total > 0 && pct === 100 && (
+              <span className="animate-bounce" aria-hidden>
+                🏆
+              </span>
+            )}
+          </h3>
           {meta.length > 0 && (
             <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               {meta.join(" · ")}
@@ -45,7 +52,7 @@ export function GoalCard({ goal }: { goal: GoalWithTasks }) {
         <div className="mt-3">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
             <div
-              className="h-full rounded-full bg-linear-to-r from-emerald-400 to-emerald-600 transition-all"
+              className="h-full rounded-full bg-linear-to-r from-emerald-400 to-emerald-600 transition-all duration-500 ease-out"
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -63,17 +70,7 @@ export function GoalCard({ goal }: { goal: GoalWithTasks }) {
         </div>
       )}
 
-      <form action={createTask} className="mt-3 flex gap-2">
-        <input type="hidden" name="goalId" value={goal.id} />
-        <input
-          type="text"
-          name="title"
-          placeholder="Tambah langkah kecil..."
-          required
-          className="min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
-        />
-        <SubmitButton>+</SubmitButton>
-      </form>
+      <AddTaskForm goalId={goal.id} />
     </div>
   );
 }

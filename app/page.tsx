@@ -10,6 +10,16 @@ import { groupByCategory, groupIcon } from "@/app/lib/groups";
 import { areaIcon, getTodayFocusTasks } from "@/app/lib/goals";
 import { WeeklyTrendChart } from "@/app/components/WeeklyTrendChart";
 import { MiniTrendChart } from "@/app/components/MiniTrendChart";
+import { ProgressRing } from "@/app/components/ProgressRing";
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 4) return "Masih begadang? 🌙";
+  if (hour < 11) return "Selamat pagi ☀️";
+  if (hour < 15) return "Selamat siang 🌤️";
+  if (hour < 19) return "Selamat sore 🌇";
+  return "Selamat malam 🌙";
+}
 
 export default async function DashboardPage() {
   const weekStart = getWeekStart();
@@ -31,11 +41,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <section className="flex flex-col gap-1">
+      <section className="animate-fade-in-up flex flex-col gap-1">
         <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-          Minggu ini
+          {getGreeting()} · Minggu ini
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+        <h1 className="bg-linear-to-r from-zinc-900 to-zinc-600 bg-clip-text text-2xl font-semibold tracking-tight text-transparent sm:text-3xl dark:from-white dark:to-zinc-400">
           {formatWeekLabel(weekStart)}
         </h1>
       </section>
@@ -71,6 +81,7 @@ export default async function DashboardPage() {
           value={`${filledCount}/${totalCount}`}
           icon="✅"
           accent="emerald"
+          delayMs={0}
         />
         <StatCard
           label="Skor minggu ini"
@@ -78,22 +89,26 @@ export default async function DashboardPage() {
           delta={recap.scoreDelta}
           icon="📊"
           accent="indigo"
+          delayMs={60}
         />
         <StatCard
           label="Beruntun"
           value={`${streak} minggu`}
           icon="🔥"
           accent="amber"
+          delayMs={120}
+          pulse={streak > 0}
         />
         <StatCard
           label="Total kategori"
           value={`${totalCount}`}
           icon="🗂️"
           accent="zinc"
+          delayMs={180}
         />
       </section>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="animate-fade-in-up rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900" style={{ animationDelay: "200ms" }}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-semibold">Ringkasan Mingguan</h2>
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -129,7 +144,8 @@ export default async function DashboardPage() {
                 <TrendArrow delta={trend.delta} />
                 {trend.streak > 1 && (
                   <span className="text-amber-600 dark:text-amber-400">
-                    🔥{trend.streak}
+                    <span className="animate-flicker">🔥</span>
+                    {trend.streak}
                   </span>
                 )}
               </span>
@@ -166,13 +182,25 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/50 dark:bg-emerald-950/30 sm:hidden">
-        <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
-          {allDone ? "Semua sudah terisi!" : "Belum isi check-in minggu ini"}
+      <section
+        className={`flex items-center justify-between gap-3 rounded-2xl border p-5 shadow-sm transition-all sm:hidden ${
+          allDone
+            ? "border-emerald-300 bg-linear-to-r from-emerald-50 to-teal-50 dark:border-emerald-800 dark:from-emerald-950/40 dark:to-teal-950/30"
+            : "border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30"
+        }`}
+      >
+        <p className="flex items-center gap-2 text-sm font-medium text-emerald-800 dark:text-emerald-300">
+          {allDone ? (
+            <>
+              <span className="animate-bounce">🎉</span> Semua sudah terisi!
+            </>
+          ) : (
+            "Belum isi check-in minggu ini"
+          )}
         </p>
         <Link
           href="/checkin"
-          className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
+          className="shrink-0 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-transform hover:scale-105 active:scale-95"
         >
           {allDone ? "Edit" : "Isi"}
         </Link>
@@ -204,20 +232,38 @@ export default async function DashboardPage() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {groupItems.map(({ category, entry, dailyValues, adaptiveTarget }) => (
+            {groupItems.map(({ category, entry, dailyValues, adaptiveTarget }, idx) => {
+              const ringProgress =
+                category.type === "counter"
+                  ? Math.round(
+                      ((entry?.count ?? 0) /
+                        Math.max(adaptiveTarget ?? category.weeklyTarget ?? 1, 1)) *
+                        100
+                    )
+                  : 0;
+              return (
               <div
                 key={category.id}
-                className={`rounded-2xl border p-4 shadow-sm transition-shadow hover:shadow-md ${
+                className={`animate-fade-in-up rounded-2xl border p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
                   entry
                     ? "border-emerald-200/70 bg-white dark:border-emerald-900/40 dark:bg-zinc-900"
                     : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
                 }`}
+                style={{ animationDelay: `${idx * 60}ms` }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 text-lg dark:bg-zinc-800">
-                      {category.icon}
-                    </span>
+                    {category.type === "counter" ? (
+                      <ProgressRing progress={ringProgress} size={44} strokeWidth={3}>
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-base dark:bg-zinc-800">
+                          {category.icon}
+                        </span>
+                      </ProgressRing>
+                    ) : (
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 text-lg dark:bg-zinc-800">
+                        {category.icon}
+                      </span>
+                    )}
                     <div>
                       <h3 className="font-medium leading-tight">
                         {category.name}
@@ -286,7 +332,8 @@ export default async function DashboardPage() {
                   </p>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       ))}
@@ -324,12 +371,16 @@ function StatCard({
   icon,
   accent,
   delta,
+  delayMs = 0,
+  pulse = false,
 }: {
   label: string;
   value: string;
   icon: string;
   accent: "emerald" | "indigo" | "amber" | "zinc";
   delta?: number;
+  delayMs?: number;
+  pulse?: boolean;
 }) {
   const accentClasses: Record<string, string> = {
     emerald: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
@@ -339,10 +390,15 @@ function StatCard({
   };
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div
+      className="animate-fade-in-up rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
+      style={{ animationDelay: `${delayMs}ms` }}
+    >
       <div className="flex items-center justify-between">
         <span
-          className={`flex h-9 w-9 items-center justify-center rounded-xl text-base ${accentClasses[accent]}`}
+          className={`flex h-9 w-9 items-center justify-center rounded-xl text-base ${accentClasses[accent]} ${
+            pulse ? "animate-flicker" : ""
+          }`}
         >
           {icon}
         </span>

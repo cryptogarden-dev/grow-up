@@ -30,7 +30,7 @@ function adaptiveKey(categoryId: string, weekStart: Date): string {
  * target (no lookahead bias).
  */
 async function getAdaptiveTargetMap(
-  categories: Pick<CategoryModel, "id" | "type" | "weeklyTarget">[],
+  categories: Pick<CategoryModel, "id" | "type" | "weeklyTarget" | "createdAt">[],
   weekStarts: Date[]
 ): Promise<Map<string, AdaptiveTarget>> {
   const result = new Map<string, AdaptiveTarget>();
@@ -54,10 +54,16 @@ async function getAdaptiveTargetMap(
   );
 
   for (const category of counters) {
+    // Weeks before the category even existed aren't "0 done that week" —
+    // they're not data at all, and zero-filling them would drag a brand
+    // new category's equilibrium down for its first
+    // `EQUILIBRIUM_WINDOW_WEEKS` weeks even if it's off to a great start.
+    const createdWeek = getWeekStart(category.createdAt);
     for (const weekStart of weekStarts) {
       const priorCounts: number[] = [];
       for (let i = EQUILIBRIUM_WINDOW_WEEKS; i >= 1; i--) {
         const w = addWeeks(weekStart, -i);
+        if (w < createdWeek) continue;
         priorCounts.push(countByKey.get(adaptiveKey(category.id, w)) ?? 0);
       }
       result.set(
@@ -100,6 +106,13 @@ export function isCategoryAchieved(
 export async function getCategories() {
   return prisma.category.findMany({
     where: { archived: false },
+    orderBy: { order: "asc" },
+  });
+}
+
+export async function getArchivedCategories() {
+  return prisma.category.findMany({
+    where: { archived: true },
     orderBy: { order: "asc" },
   });
 }
@@ -203,11 +216,20 @@ export async function getHistory(limit = 12) {
   return { categories, weeks };
 }
 
+/**
+ * How far back streak queries look. No realistic streak spans more than a
+ * couple of years, so bounding the query keeps it cheap indefinitely
+ * instead of scanning every WeeklyEntry ever created.
+ */
+const MAX_STREAK_LOOKBACK_WEEKS = 104;
+
 export async function getCurrentStreak() {
   const categories = await getCategories();
   if (categories.length === 0) return 0;
 
+  const cutoff = addWeeks(getWeekStart(), -MAX_STREAK_LOOKBACK_WEEKS);
   const entries = await prisma.weeklyEntry.findMany({
+    where: { weekStart: { gte: cutoff } },
     orderBy: { weekStart: "desc" },
   });
 
@@ -308,8 +330,11 @@ export async function getWeeklyRecap(weeksBack = 8) {
   const scoreDelta = thisWeekScore - lastWeekScore;
 
   // For streaks, look further back than the chart window so a long-running
-  // habit isn't artificially capped by weeksBack.
+  // habit isn't artificially capped by weeksBack — but still bounded, so
+  // this doesn't scan every WeeklyEntry ever created as data grows.
+  const streakCutoff = addWeeks(currentWeekStart, -MAX_STREAK_LOOKBACK_WEEKS);
   const streakEntries = await prisma.weeklyEntry.findMany({
+    where: { weekStart: { gte: streakCutoff } },
     orderBy: { weekStart: "desc" },
   });
 
@@ -334,6 +359,25 @@ export async function getWeeklyRecap(weeksBack = 8) {
     const categoryEntries = streakEntries.filter(
       (e) => e.categoryId === category.id
     );
+    const countByWeek = new Map(
+      categoryEntries.map((e) => [e.weekStart.getTime(), e.count ?? 0])
+    );
+    const createdWeek = getWeekStart(category.createdAt);
+    // Streak must respect each week's own adaptive target too (same rule as
+    // the weekly score above) — otherwise a category could show as "not
+    // achieved" everywhere else this week while its streak keeps climbing.
+    const adaptiveTargetFor = (week: Date): number | undefined => {
+      if (category.type !== "counter") return undefined;
+      const priorCounts: number[] = [];
+      for (let i = EQUILIBRIUM_WINDOW_WEEKS; i >= 1; i--) {
+        const w = addWeeks(week, -i);
+        if (w < createdWeek) continue;
+        priorCounts.push(countByWeek.get(w.getTime()) ?? 0);
+      }
+      return computeAdaptiveTarget(category.weeklyTarget ?? 1, priorCounts)
+        .adaptiveTarget;
+    };
+
     let streak = 0;
     let cursor = currentWeekStart;
     const hasCurrent = categoryEntries.some(
@@ -346,7 +390,8 @@ export async function getWeeklyRecap(weeksBack = 8) {
       const entry = categoryEntries.find(
         (e) => e.weekStart.getTime() === cursor.getTime()
       );
-      if (!isCategoryAchieved(category, entry)) break;
+      if (!isCategoryAchieved(category, entry, adaptiveTargetFor(cursor)))
+        break;
       streak += 1;
       cursor = addWeeks(cursor, -1);
     }

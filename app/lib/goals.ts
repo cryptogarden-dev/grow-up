@@ -42,6 +42,14 @@ export async function getGoalGroups(): Promise<GoalGroup[]> {
   return groupByArea(goals);
 }
 
+export async function getArchivedGoals(): Promise<GoalWithTasks[]> {
+  return prisma.goal.findMany({
+    where: { archived: true },
+    orderBy: { order: "asc" },
+    include: { tasks: { orderBy: { order: "asc" } } },
+  });
+}
+
 export function goalProgress(goal: GoalWithTasks): {
   done: number;
   total: number;

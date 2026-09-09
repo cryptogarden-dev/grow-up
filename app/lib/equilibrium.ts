@@ -24,10 +24,19 @@ const SMOOTHING = 2 / (EQUILIBRIUM_WINDOW_WEEKS + 1);
 const GROWTH_RATE = 1.01;
 
 /**
- * How far above the base target a single week is allowed to pull the
- * equilibrium. Without this, one outlier week (e.g. a 10x content sprint)
- * would drag next weeks' expectations up to a level you likely can't
- * sustain. Clamping keeps the equilibrium point realistic and stable.
+ * How far above the *recently sustained* level a single week is allowed to
+ * pull the equilibrium. Without this, one outlier week (e.g. a 10x content
+ * sprint) would drag next weeks' expectations up to a level you likely
+ * can't sustain. Clamping keeps the equilibrium point realistic and stable.
+ *
+ * Deliberately relative to the window's median (see `computeAdaptiveTarget`)
+ * rather than the fixed `weeklyTarget` floor: capping against the static
+ * original target would put a permanent ceiling on growth at
+ * `weeklyTarget * OUTLIER_CAP_MULTIPLIER` no matter how much better you get
+ * over months, which defeats the point of an *uncapped* 1%-compounding
+ * target. Capping against the median instead only suppresses genuine
+ * one-off spikes, while still letting a sustained improvement raise the bar
+ * indefinitely.
  */
 const OUTLIER_CAP_MULTIPLIER = 1.5;
 
@@ -44,6 +53,15 @@ function ema(values: number[]): number {
     value = SMOOTHING * values[i] + (1 - SMOOTHING) * value;
   }
   return value;
+}
+
+/** Median of a list of numbers (average of the two middle values if even-length). */
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 export type AdaptiveTarget = {
@@ -71,7 +89,8 @@ export function computeAdaptiveTarget(
   if (priorCounts.length === 0) {
     return { equilibrium: 0, adaptiveTarget: weeklyTarget };
   }
-  const cap = weeklyTarget * OUTLIER_CAP_MULTIPLIER;
+  const referenceLevel = Math.max(weeklyTarget, median(priorCounts));
+  const cap = referenceLevel * OUTLIER_CAP_MULTIPLIER;
   const clamped = priorCounts.map((v) => Math.min(v, cap));
   const equilibrium = ema(clamped);
   const adaptiveTarget = Math.max(

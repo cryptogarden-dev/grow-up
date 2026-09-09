@@ -49,3 +49,6 @@ next-env.d.ts
 
 # stray Windows reserved-name artifact
 nul
+
+.vercel
+.env*

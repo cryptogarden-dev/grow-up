@@ -16,10 +16,10 @@ export function TaskRow({
           className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
         >
           <span
-            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] ${
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] transition-all duration-200 ${
               task.done
-                ? "border-emerald-500 bg-emerald-500 text-white"
-                : "border-zinc-300 text-transparent dark:border-zinc-600"
+                ? "animate-pop-in border-emerald-500 bg-emerald-500 text-white"
+                : "border-zinc-300 text-transparent hover:border-emerald-400 dark:border-zinc-600"
             }`}
           >
             ✓
